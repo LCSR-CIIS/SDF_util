@@ -27,21 +27,43 @@ import os
 import re
 
 # Thresholds
-red_thres = 0.2
-yellow_thres = 0.4
+red_thres = 2.0
+yellow_thres = 4.0
+
+#Colors to ignore in the overlay process
+L1_bone_color = (242, 215, 145)  # L1 minus drilling
+L2_bone_color = (241, 215, 144)  # L2 minus drilling
+L3_bone_color = (240, 215, 145)  # L3 minus drilling
+L4_bone_color = (242, 213, 146)  # L4 minus drilling
+vf_color = (245, 233, 253)  # Vetebral Forman
+
+# Function to check if the pixel is 'colored'
+def is_colored(pixel):
+    return any(value > 0.0 for value in pixel)
+
+def is_boneORVF(pixel):
+    return pixel in [L1_bone_color, L2_bone_color, L3_bone_color, L4_bone_color, vf_color]
 
 # Function to apply overlay
 def apply_overlay(original, vf, bone1, bone2, spaceres):
     for x in range(original.width):
         for y in range(original.height):
-            dist_vf =    vf.getpixel((x, y))[0]/255.0 * 600.0 * spaceres
-            dist_bone1 = bone1.getpixel((x, y))[0]/255.0 * 600.0 * spaceres
-            dist_bone2 = bone2.getpixel((x, y))[0]/255.0 * 600.0 * spaceres
+            pixel_original = original.getpixel((x, y))
 
-            # Determine color based on the condition
-            if dist_vf < 0 or dist_bone1 < 0 or dist_bone2 < 0:
-                pass
-            elif dist_vf < 0.1 or dist_bone1 < 0.1 or dist_bone2 < 0.1:
+            # if there is no color
+            if not is_colored(pixel_original):
+                continue
+            
+            # If the pixel is bone or VF
+            if is_boneORVF(pixel_original):
+                continue
+
+            dist_vf    = (vf.getpixel((x, y))[0]/255.0 - vf.getpixel((x, y))[1]/255.0) * 600.0 * spaceres
+            dist_bone1 = (bone1.getpixel((x, y))[0]/255.0 - bone1.getpixel((x, y))[1]/255.0) * 600.0 * spaceres
+            dist_bone2 = (bone2.getpixel((x, y))[0]/255.0 - bone2.getpixel((x, y))[1]/255.0) * 600.0 * spaceres
+
+            # Determine color based on the condition            
+            if dist_vf < 0.1 or dist_bone1 < 0.1 or dist_bone2 < 0.1:
                 color = (139, 0, 0)  # Dark Red
             elif dist_vf < red_thres or dist_bone1 < red_thres or dist_bone2 < red_thres:
                 color = (255, 0, 0)  # Red
