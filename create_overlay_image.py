@@ -25,6 +25,7 @@ import click
 from PIL import Image
 import os
 import re
+import math
 
 # Thresholds
 red_thres = 2.0
@@ -37,12 +38,23 @@ L3_bone_color = (240, 215, 145)  # L3 minus drilling
 L4_bone_color = (242, 213, 146)  # L4 minus drilling
 vf_color = (245, 233, 253)  # Vetebral Forman
 
+# Define a threshold for how close a color needs to be to be considered 'close'
+color_close_threshold = 10  # Adjust this value as needed
+green_color = (120, 195, 130)
+
 # Function to check if the pixel is 'colored'
 def is_colored(pixel):
     return any(value > 0.0 for value in pixel)
 
 def is_boneORVF(pixel):
     return pixel in [L1_bone_color, L2_bone_color, L3_bone_color, L4_bone_color, vf_color]
+
+# Function to calculate the Euclidean distance between two colors
+def color_distance(color1, color2):
+    return math.sqrt(sum((comp1 - comp2) ** 2 for comp1, comp2 in zip(color1, color2)))
+
+def is_close_to_green(pixel):
+    return color_distance(pixel, green_color) < color_close_threshold
 
 # Function to apply overlay
 def apply_overlay(original, vf, bone1, bone2, spaceres):
@@ -57,22 +69,23 @@ def apply_overlay(original, vf, bone1, bone2, spaceres):
             # If the pixel is bone or VF
             if is_boneORVF(pixel_original):
                 continue
+            
+            if (is_close_to_green(pixel_original)):
+                dist_vf    = (vf.getpixel((x, y))[0]/255.0 - vf.getpixel((x, y))[1]/255.0) * 600.0 * spaceres
+                dist_bone1 = (bone1.getpixel((x, y))[0]/255.0 - bone1.getpixel((x, y))[1]/255.0) * 600.0 * spaceres
+                dist_bone2 = (bone2.getpixel((x, y))[0]/255.0 - bone2.getpixel((x, y))[1]/255.0) * 600.0 * spaceres
 
-            dist_vf    = (vf.getpixel((x, y))[0]/255.0 - vf.getpixel((x, y))[1]/255.0) * 600.0 * spaceres
-            dist_bone1 = (bone1.getpixel((x, y))[0]/255.0 - bone1.getpixel((x, y))[1]/255.0) * 600.0 * spaceres
-            dist_bone2 = (bone2.getpixel((x, y))[0]/255.0 - bone2.getpixel((x, y))[1]/255.0) * 600.0 * spaceres
+                # Determine color based on the condition            
+                if dist_vf < 0.1 or dist_bone1 < 0.1 or dist_bone2 < 0.1:
+                    color = (139, 0, 0)  # Dark Red
+                elif dist_vf < red_thres or dist_bone1 < red_thres or dist_bone2 < red_thres:
+                    color = (255, 0, 0)  # Red
+                elif dist_vf < yellow_thres or dist_bone1 < yellow_thres or dist_bone2 < yellow_thres:
+                    color = (255, 255, 0)  # Yellow
+                else:
+                    color = (0, 128, 0)  # Green
 
-            # Determine color based on the condition            
-            if dist_vf < 0.1 or dist_bone1 < 0.1 or dist_bone2 < 0.1:
-                color = (139, 0, 0)  # Dark Red
-            elif dist_vf < red_thres or dist_bone1 < red_thres or dist_bone2 < red_thres:
-                color = (255, 0, 0)  # Red
-            elif dist_vf < yellow_thres or dist_bone1 < yellow_thres or dist_bone2 < yellow_thres:
-                color = (255, 255, 0)  # Yellow
-            else:
-                color = (0, 128, 0)  # Green
-
-            original.putpixel((x, y), color)
+                original.putpixel((x, y), color)
 
     return original
 
